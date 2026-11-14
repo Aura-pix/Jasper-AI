@@ -1,4 +1,4 @@
-# Submission note — draft
+# Submission note
 
 ## What I built
 
@@ -9,6 +9,8 @@ form → `/api/quote` (price) → `/api/book` (Agentplace adapter) → Agentplac
 The customer enters `Name`, `Email`, `Job Type`, `Distance (miles)`, `Requested Date`, and `Requested Time`. The form shows a price preview before the booking request. The agent then calculates the final price, writes a pending row to the Sheet, checks Calendar, updates the row to `Confirmed`, and sends the email. The frontend renders the agent's action log and the result.
 
 The agent is the application. The frontend does not own the booking workflow and does not simulate the live agent's stages. It sends the exact-key request and renders whatever the agent reports.
+
+The published agent is also embedded on the site, so the same agent is available as a conversational surface alongside the structured form.
 
 ## The external API
 
@@ -60,6 +62,22 @@ The published agent exposes `POST /api/send-message`. It is asynchronous: it ret
 
 The agent's normal chat and voice replies stay conversational. Only form submissions use the machine marker and structured result. This keeps the agent as the application while giving the form a reliable result.
 
+## What I published
+
+- Published the agent at `https://bobmetsnbddq.run.agentplace.io`.
+- Connected Google Calendar, Google Sheets, and Gmail in Agentplace.
+- Embedded the published agent on the Next.js site with the Agentplace embed script in `app/layout.tsx` (`data-agent-url="https://bobmetsnbddq.run.agentplace.io/"`, `data-controls="input"`).
+- Kept the structured form as the booking path. The embed is the conversational surface; both surfaces use the same published agent.
+
+## Live test
+
+I ran one deliberate end-to-end booking against the published agent:
+
+- Request: `Live Test Booking`, `live-test@example.com`, `Drain cleaning`, `10` miles, `2026-11-24` at `14:00`.
+- Result: `Confirmed`, `Price Quote` `114`, `Booking ID` `JPH-EAC67A5F-5F01-45D4-AC40-FF501BAC2962`, slot `2026-11-24` at `14:00`.
+- The agent wrote the pending row, changed `Booking Status` to `Confirmed`, ran the Calendar check, and sent the email.
+- The test email address is reserved, so delivery was not verified. The Sheet row is the evidence to check.
+
 ## Availability
 
 Availability belongs to the agent because that is where the Google Calendar authorization lives. Vercel never holds Calendar credentials. The agent checks the requested slot. If it is unavailable, it updates the row to `Unavailable` and returns alternatives; the frontend shows them. If it is available, the agent updates the row to `Confirmed` and emails the customer.
@@ -89,5 +107,6 @@ The mock agent marks Sundays and 12:00 PM as booked so the unavailable path can 
 
 - Published agent: `https://bobmetsnbddq.run.agentplace.io`
 - Send-message endpoint: `https://bobmetsnbddq.run.agentplace.io/api/send-message`
+- Agent embed: `https://agentplace.io/admin/embed/v1.js`
 - GitHub repo: `https://github.com/Aura-pix/Jasper-AI`
 - Deployed form: `https://jasper-ai-five.vercel.app/`

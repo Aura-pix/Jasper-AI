@@ -26,6 +26,16 @@ The original assessment brief is preserved in [`docs/agentplace-brief.md`](docs/
 
 The Agentplace Builder writes and hosts the agent. We own the prompt, the contract, the pricing logic, the frontend, and the repository, so the generated agent stays small and predictable.
 
+## Embedded agent
+
+The published agent is embedded on the site through `app/layout.tsx`:
+
+- `src="https://agentplace.io/admin/embed/v1.js"`
+- `data-agent-url="https://bobmetsnbddq.run.agentplace.io/"`
+- `data-controls="input"`
+
+The structured form remains the booking path. The embed adds the conversational agent surface, and both use the same published agent.
+
 ## The exact-key contract
 
 The form, the agent, and the Sheet use the same header strings. There is no camelCase or job-type ID mapping.
@@ -185,6 +195,15 @@ This adapter is necessary because `send-message` is asynchronous. It returns `20
 
 The agent must support the machine request mode described in [`docs/agent-prompt.md`](docs/agent-prompt.md).
 
+### Live test
+
+One deliberate end-to-end booking passed:
+
+- Request: `Live Test Booking` / `live-test@example.com` / `Drain cleaning` / `10` miles / `2026-11-24` at `14:00`
+- Result: `Confirmed`, `Price Quote` `114`, `Booking ID` `JPH-EAC67A5F-5F01-45D4-AC40-FF501BAC2962`, slot `2026-11-24` at `14:00`
+- The agent wrote the pending row, updated it to `Confirmed`, ran the Calendar check, and sent the email.
+- The test email address is reserved, so delivery was not verified. The Sheet row is the evidence to check.
+
 ## Agent workflow
 
 1. Receive the six exact-key fields.
@@ -269,4 +288,5 @@ The tests cover the rate card, exact-key validation, and the mock availability/a
 - `AGENT_BOOKING_URL` must be the `POST /api/send-message` URL, not the agent page URL. The adapter derives the `/ws` session URL from the same host.
 - `send-message` is asynchronous. The adapter uses the session WebSocket `content.query` method to wait for the final assistant text. If Agentplace adds a synchronous or webhook result endpoint, replace that wait in `lib/agent-client.ts`.
 - The form ignores conversational agent replies. The agent must return the `BOOKING_RESULT_JSON:` line described in `docs/agent-prompt.md`.
+- The Agentplace embed script in `app/layout.tsx` loads the conversational agent on the site. The structured form still uses `/api/book`.
 - A live booking test writes a real Sheet row and may send a real email. Run it deliberately, not as part of a generic smoke test.

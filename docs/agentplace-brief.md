@@ -98,7 +98,7 @@ Here is the roadmap, split by who does what.
 - Platform limits you hit: e.g., _"The agent couldn't directly parse the form payload without a custom API bridge, so I built the Vercel endpoint as the pricing logic layer and called it from the agent."_
 - Production changes: swap Google Sheet for Postgres, add Stripe payment link, add authentication.
 
-**You send the email** to `nikita@agentplace.io` with:
+**You send the email** to `[EMAIL_ADDRESS]` with:
 
 - Published agent link
 - GitHub repo links (Vercel API + frontend + agent code if pushed)
