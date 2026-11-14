@@ -29,6 +29,9 @@ describe("mock availability", () => {
         "Requested Time": "14:00",
       });
       expect(result["Booking ID"]).toMatch(/^JPH-[A-Z0-9]{8}$/);
+      expect(result["Booking Reference"]).toBe(
+        result["Booking ID"].slice(-6),
+      );
       expect(result.Actions).toHaveLength(5);
       expect(result.Actions.every((action) => action.Status === "Done")).toBe(
         true,
@@ -74,6 +77,10 @@ describe("mock availability", () => {
         { "Requested Date": "2026-11-20", "Requested Time": "15:00" },
       ]);
     }
+  });
+
+  it("rejects the closing hour as an appointment start", () => {
+    expect(isMockSlotAvailable("2026-11-20", "18:00")).toBe(false);
   });
 
   it("returns three alternatives", () => {

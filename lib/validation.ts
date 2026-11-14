@@ -130,7 +130,7 @@ export function validateBookingInput(
 
   if (typeof time !== "string" || !TIME_SLOT_SET.has(time)) {
     errors["Requested Time"] =
-      "Choose a requested time between 8:00 AM and 6:00 PM.";
+      "Choose an appointment start between 8:00 AM and 5:00 PM.";
   }
 
   if (Object.keys(errors).length > 0) {

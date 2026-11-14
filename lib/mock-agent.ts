@@ -37,7 +37,11 @@ function addDays(date: string, days: number): string {
 }
 
 export function isMockSlotAvailable(date: string, time: string): boolean {
-  return dayOfWeek(date) !== 0 && time !== MOCK_BOOKED_TIME;
+  return (
+    dayOfWeek(date) !== 0 &&
+    TIME_SLOTS.includes(time) &&
+    time !== MOCK_BOOKED_TIME
+  );
 }
 
 export function getMockAlternatives(
@@ -101,11 +105,13 @@ export function getMockBookingResult(request: BookingRequest): BookingResult {
     request["Job Type"],
     request["Distance (miles)"],
   );
+  const bookingId = `JPH-${crypto.randomUUID().slice(0, 8).toUpperCase()}`;
 
   return {
     "Booking Status": "Confirmed",
     "Price Quote": quote["Price Quote"],
-    "Booking ID": `JPH-${crypto.randomUUID().slice(0, 8).toUpperCase()}`,
+    "Booking ID": bookingId,
+    "Booking Reference": bookingId.slice(-6),
     Slot: {
       "Requested Date": date,
       "Requested Time": time,

@@ -5,7 +5,7 @@ export const OPEN_HOUR = 8;
 export const CLOSE_HOUR = 18;
 
 export const TIME_SLOTS = Array.from(
-  { length: CLOSE_HOUR - OPEN_HOUR + 1 },
+  { length: CLOSE_HOUR - OPEN_HOUR },
   (_, index) => {
     const hour = OPEN_HOUR + index;
     return `${String(hour).padStart(2, "0")}:00`;
@@ -48,6 +48,7 @@ export type ConfirmedBooking = {
   "Booking Status": "Confirmed";
   "Price Quote": number;
   "Booking ID": string;
+  "Booking Reference": string;
   Slot: BookingSlot;
   Actions: AgentAction[];
 };
