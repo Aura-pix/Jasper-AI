@@ -1,8 +1,4 @@
-# Agentplace Builder prompt
-
-Paste this into the Agentplace Builder. Replace `<VERCEL_APP_URL>` with the deployed Vercel URL before publishing. This prompt is the contract; the pricing API, frontend, repository, and request schema remain ours.
-
----
+# Agentplace Builder
 
 Build an agent for Jasper Plumbing House that receives a booking request, prices it, records it, checks availability, updates the record, and sends the confirmation email. The agent owns the booking workflow.
 
@@ -35,18 +31,18 @@ The frontend sends these exact keys:
 
 Use one row per booking. Columns A through J, exact headers:
 
-| Col | Header |
-| --- | --- |
-| A | `Name` |
-| B | `Email` |
-| C | `Job Type` |
-| D | `Distance (miles)` |
-| E | `Price Quote` |
-| F | `Booking Status` |
-| G | `Timestamp` |
-| H | `Requested Date` |
-| I | `Requested Time` |
-| J | `Booking ID` |
+| Col | Header             |
+| --- | ------------------ |
+| A   | `Name`             |
+| B   | `Email`            |
+| C   | `Job Type`         |
+| D   | `Distance (miles)` |
+| E   | `Price Quote`      |
+| F   | `Booking Status`   |
+| G   | `Timestamp`        |
+| H   | `Requested Date`   |
+| I   | `Requested Time`   |
+| J   | `Booking ID`       |
 
 ## Steps
 
@@ -59,7 +55,6 @@ Use one row per booking. Columns A through J, exact headers:
    Read `"Price Quote"` from the response. Never calculate or guess the price yourself.
 
 2. Generate a `Booking ID` and append one pending row to the Sheet:
-
    - A = `Name`
    - B = `Email`
    - C = `Job Type`
@@ -74,7 +69,6 @@ Use one row per booking. Columns A through J, exact headers:
 3. Check Google Calendar for `Requested Date` at `Requested Time`, for 60 minutes, in `America/New_York`.
 
 4. If the slot is available:
-
    - Update the same row's F to `Confirmed`, using J `Booking ID` to find the row.
    - Send a confirmation email via Gmail to B `Email` with:
      > Thanks [Name], your quote for [Job Type] is [Price Quote]. We have booked you for [Requested Date] at [Requested Time].
@@ -83,7 +77,7 @@ Use one row per booking. Columns A through J, exact headers:
      ```json
      {
        "Booking Status": "Confirmed",
-       "Price Quote": 138.60,
+       "Price Quote": 138.6,
        "Booking ID": "JPH-...",
        "Slot": { "Requested Date": "2026-11-20", "Requested Time": "14:00" },
        "Actions": [
@@ -97,7 +91,6 @@ Use one row per booking. Columns A through J, exact headers:
      ```
 
 5. If the slot is unavailable:
-
    - Update the same row's F to `Unavailable`.
    - Do not send the email.
    - Return:
@@ -121,7 +114,6 @@ Use one row per booking. Columns A through J, exact headers:
    Return up to 3 open hourly slots between 08:00 and 18:00, excluding Sundays and the requested time.
 
 6. If Calendar, Sheets, or Gmail fails:
-
    - Update the same row's F to `Failed`.
    - Return:
 
@@ -129,9 +121,7 @@ Use one row per booking. Columns A through J, exact headers:
      {
        "Booking Status": "Failed",
        "Message": "...",
-       "Actions": [
-         { "Step": "Working on your booking", "Status": "Failed" }
-       ]
+       "Actions": [{ "Step": "Working on your booking", "Status": "Failed" }]
      }
      ```
 
