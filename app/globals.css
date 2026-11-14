@@ -32,9 +32,3 @@ body {
   color: var(--color-ink);
   font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
 }
-
-/* Keep the booking confirmation focused on the verified appointment. */
-section[class~="max-w-[560px]"].rounded-card > dl > div:nth-child(n + 3),
-section[class~="max-w-[560px]"].rounded-card > p.mt-3 {
-  display: none;
-}
