@@ -76,6 +76,11 @@ describe("mock availability", () => {
     }
   });
 
+  it("rejects the closing hour as an appointment start", () => {
+    expect(isMockSlotAvailable("2026-11-20", "18:00")).toBe(false);
+    expect(isMockSlotAvailable("2026-11-20", "17:00")).toBe(true);
+  });
+
   it("returns three alternatives", () => {
     expect(getMockAlternatives("2026-11-20", "14:00")).toHaveLength(3);
   });

@@ -72,6 +72,8 @@ The ready Sheet keeps A–G exactly as created and adds H `Requested Date`, I `R
 
 The agent fills `Price Quote`, `Booking Status`, `Timestamp`, and `Booking ID`, and uses `Booking ID` to update the same row from pending to confirmed.
 
+The live adapter adds `"Timezone": "America/New_York"` to the machine message. The form itself still sends only the six customer fields.
+
 ## Pricing
 
 | Job Type | Multiplier |
@@ -186,9 +188,9 @@ AGENT_BOOKING_URL=https://bobmetsnbddq.run.agentplace.io/api/send-message
 
 The live adapter in `lib/agent-client.ts` does four things:
 
-1. Posts a `[JASPER_BOOKING_REQUEST]` machine message containing the exact-key booking and the required response schema to `send-message`.
+1. Posts a `[JASPER_BOOKING_REQUEST]` machine message containing the exact-key booking plus `"Timezone": "America/New_York"` and the required response schema to `send-message`.
 2. Reads the `202` response: `{ "sessionKey": "...", "responseId": "...", "accepted": true }`.
-3. Connects to `wss://<agent-host>/ws?agent_session_id=<sessionKey>`, queries the session content, and waits for the final assistant text with the matching `responseId`.
+3. Connects to `wss://<agent-host>/ws?agent_session_id=<sessionKey>`, queries the session content, and waits for the final assistant text with the matching `responseId`. It falls back to the last assistant text containing the result marker if the response id differs.
 4. Extracts the `BOOKING_RESULT_JSON:` object and normalizes it into the result the form expects.
 
 This adapter is necessary because `send-message` is asynchronous. It returns `202` and processes the turn in the background; it does not return the booking result in the HTTP response. The agent's normal chat and voice replies stay conversational. Only form submissions use the machine marker.
@@ -206,7 +208,7 @@ One deliberate end-to-end booking passed:
 
 ## Agent workflow
 
-1. Receive the six exact-key fields.
+1. Receive the six exact-key fields plus `Timezone`. The adapter adds `"Timezone": "America/New_York"` to the machine message.
 2. Call `/api/quote` with `"Job Type"` and `"Distance (miles)"`. Use the returned `"Price Quote"`.
 3. Append a pending row: A–D + H/I from the request, E price, F `Pending Calendar Check`, G timestamp, J booking ID.
 4. Check Google Calendar for the requested slot in `America/New_York`.
@@ -266,7 +268,7 @@ The tests cover the rate card, exact-key validation, and the mock availability/a
 6. Set `AGENT_MODE=live`, `AGENT_BOOKING_URL` (the `send-message` URL), and `AGENT_API_KEY` in Vercel, then redeploy.
 7. Submit a booking and verify the pending row, the status update, the email, and the Calendar check.
 
-`/api/book` streams for up to 60 seconds (`maxDuration = 60`). The live adapter uses a 20-second request timeout and a 35-second WebSocket wait, so keep the agent turn within that window.
+`/api/book` streams for up to 60 seconds (`maxDuration = 60`). The live adapter uses an 8-second request timeout and a 50-second WebSocket wait, so keep the agent turn within that window.
 
 ## Production next steps
 
@@ -283,10 +285,11 @@ The tests cover the rate card, exact-key validation, and the mock availability/a
 - This is an assessment demo, not a production booking system.
 - The mock agent simulates the Sheet row, the status update, and the email. It does not touch Google services.
 - Address and phone are intentionally omitted for this assessment.
-- The mock uses New York business hours (`America/New_York`) and hourly slots from 8:00 AM to 6:00 PM.
+- The mock uses New York business hours (`America/New_York`) and hourly slots from 8:00 AM to 5:00 PM. Appointments are one hour, so the last start is 5:00 PM.
 - The published Agentplace agent has restricted authority. Test that the Sheet append/update and Gmail send actually complete; do not assume a 200 response means the side effects happened.
 - `AGENT_BOOKING_URL` must be the `POST /api/send-message` URL, not the agent page URL. The adapter derives the `/ws` session URL from the same host.
 - `send-message` is asynchronous. The adapter uses the session WebSocket `content.query` method to wait for the final assistant text. If Agentplace adds a synchronous or webhook result endpoint, replace that wait in `lib/agent-client.ts`.
 - The form ignores conversational agent replies. The agent must return the `BOOKING_RESULT_JSON:` line described in `docs/agent-prompt.md`.
 - The Agentplace embed script in `app/layout.tsx` loads the conversational agent on the site. The structured form still uses `/api/book`.
+- `agentplace-reference/` is a sanitized reference snapshot of the agent source. It is excluded from the Next.js TypeScript and ESLint build because it is not part of the deployed app.
 - A live booking test writes a real Sheet row and may send a real email. Run it deliberately, not as part of a generic smoke test.

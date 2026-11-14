@@ -37,7 +37,11 @@ function addDays(date: string, days: number): string {
 }
 
 export function isMockSlotAvailable(date: string, time: string): boolean {
-  return dayOfWeek(date) !== 0 && time !== MOCK_BOOKED_TIME;
+  return (
+    dayOfWeek(date) !== 0 &&
+    TIME_SLOTS.includes(time) &&
+    time !== MOCK_BOOKED_TIME
+  );
 }
 
 export function getMockAlternatives(

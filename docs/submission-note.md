@@ -54,13 +54,15 @@ The published agent exposes `POST /api/send-message`. It is asynchronous: it ret
 
 `/api/book` handles that in `lib/agent-client.ts`:
 
-1. It formats the exact-key booking as a `[JASPER_BOOKING_REQUEST]` message and posts it to `send-message`.
+1. It formats the exact-key booking plus `"Timezone": "America/New_York"` as a `[JASPER_BOOKING_REQUEST]` message and posts it to `send-message`.
 2. It reads the `sessionKey` and `responseId` from the `202`.
 3. It connects to `wss://<agent-host>/ws?agent_session_id=<sessionKey>` and queries the session content.
-4. It waits for the final assistant text with the matching `responseId`.
+4. It waits for the final assistant text with the matching `responseId`, falling back to the last assistant text containing the result marker.
 5. It extracts the `BOOKING_RESULT_JSON:` object and normalizes it into the response the form expects.
 
 The agent's normal chat and voice replies stay conversational. Only form submissions use the machine marker and structured result. This keeps the agent as the application while giving the form a reliable result.
+
+The agent's workflow requires `"Timezone": "America/New_York"` in its input. The adapter adds it to the machine message; the form itself sends only the six customer fields.
 
 ## What I published
 
@@ -82,6 +84,8 @@ I ran one deliberate end-to-end booking against the published agent:
 
 Availability belongs to the agent because that is where the Google Calendar authorization lives. Vercel never holds Calendar credentials. The agent checks the requested slot. If it is unavailable, it updates the row to `Unavailable` and returns alternatives; the frontend shows them. If it is available, the agent updates the row to `Confirmed` and emails the customer.
 
+Appointment starts are hourly from 8:00 AM to 5:00 PM Eastern. Jobs are one hour, so 5:00 PM is the last start before the 6:00 PM close. The mock and the agent both enforce that window.
+
 The mock agent marks Sundays and 12:00 PM as booked so the unavailable path can be tested before the live agent exists. Switching to live is an environment change (`AGENT_MODE=live` and `AGENT_BOOKING_URL`), not a frontend rewrite.
 
 ## Platform limits
@@ -90,7 +94,7 @@ The mock agent marks Sundays and 12:00 PM as booked so the unavailable path can 
 - `send-message` has no synchronous structured result and no documented webhook in the published endpoint, so the adapter holds a session WebSocket open and polls `content.query` for the final text. This is the main platform workaround. A production version would prefer a webhook or a synchronous JSON endpoint.
 - The agent must return the exact `BOOKING_RESULT_JSON:` line for form submissions. Conversational replies are not parsed.
 - The mock agent is deterministic: Sundays and 12:00 PM are unavailable. The live agent uses Calendar.
-- The SSE route is capped at 60 seconds on Vercel. The adapter uses a 20-second send-message timeout and a 35-second WebSocket wait.
+- The SSE route is capped at 60 seconds on Vercel. The adapter uses an 8-second send-message timeout and a 50-second WebSocket wait, with a short grace period for the final text.
 - The Sheet has ten columns. The agent updates the same row via `Booking ID`.
 
 ## Production changes
@@ -110,3 +114,4 @@ The mock agent marks Sundays and 12:00 PM as booked so the unavailable path can 
 - Agent embed: `https://agentplace.io/admin/embed/v1.js`
 - GitHub repo: `https://github.com/Aura-pix/Jasper-AI`
 - Deployed form: `https://jasper-ai-five.vercel.app/`
+- Spreadsheet URL: `https://docs.google.com/spreadsheets/d/1VCzmnQvELJRZIOsXaLJQTMFwFQldXLWAMOJxfjvcthE/edit?usp=sharing`

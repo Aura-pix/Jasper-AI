@@ -1,16 +1,27 @@
-import type { BookingRequest } from "./booking";
+import { BUSINESS_TIMEZONE, type BookingRequest } from "./booking";
 
 export const AGENT_RESULT_MARKER = "BOOKING_RESULT_JSON:";
-const AGENT_REQUEST_TIMEOUT_MS = 20_000;
-const AGENT_WS_TIMEOUT_MS = 35_000;
+const AGENT_REQUEST_TIMEOUT_MS = 8_000;
+const AGENT_WS_TIMEOUT_MS = 50_000;
 const CONTENT_POLL_INTERVAL_MS = 800;
+const CONTENT_COMPLETE_GRACE_POLLS = 8;
 
 type AgentSession = {
   sessionKey: string;
   responseId: string;
 };
 
+type AgentBookingPayload = BookingRequest & {
+  Timezone: typeof BUSINESS_TIMEZONE;
+};
+
+function toAgentBooking(booking: BookingRequest): AgentBookingPayload {
+  return { ...booking, Timezone: BUSINESS_TIMEZONE };
+}
+
 export function buildAgentMessage(booking: BookingRequest): string {
+  const agentBooking = toAgentBooking(booking);
+
   return [
     "[JASPER_BOOKING_REQUEST]",
     "This is a machine-to-machine booking request. Do not ask questions. Do not reply conversationally.",
@@ -26,7 +37,7 @@ export function buildAgentMessage(booking: BookingRequest): string {
     "- If a step fails, return Failed.",
     '- Use the exact keys and the exact Sheet headers. Keep all times in America/New_York.',
     "Booking:",
-    JSON.stringify(booking),
+    JSON.stringify(agentBooking),
   ].join("\n");
 }
 
@@ -101,6 +112,50 @@ export function findFinalText(
   return bestText;
 }
 
+export function findAnyFinalText(items: unknown[]): string | null {
+  let bestSeq = -1;
+  let bestText: string | null = null;
+
+  items.forEach((item, index) => {
+    if (typeof item !== "object" || item === null) {
+      return;
+    }
+
+    const stored = item as Record<string, unknown>;
+    const content = stored.content;
+
+    if (typeof content !== "object" || content === null) {
+      return;
+    }
+
+    const message = content as Record<string, unknown>;
+
+    if (message.role === "user" || message.isReasoning === true) {
+      return;
+    }
+
+    if (typeof message.content !== "string") {
+      return;
+    }
+
+    if (
+      !message.content.includes(AGENT_RESULT_MARKER) &&
+      !message.content.includes("{")
+    ) {
+      return;
+    }
+
+    const seq = typeof stored.seq === "number" ? stored.seq : index;
+
+    if (seq >= bestSeq) {
+      bestSeq = seq;
+      bestText = message.content;
+    }
+  });
+
+  return bestText;
+}
+
 export function buildAgentWsUrl(agentUrl: string, sessionKey: string): string {
   const url = new URL(agentUrl);
   url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
@@ -129,7 +184,7 @@ async function sendAgentMessage(
       message: buildAgentMessage(booking),
       metadata: {
         source: "jasper-booking-form",
-        booking,
+        booking: toAgentBooking(booking),
       },
     }),
     signal: AbortSignal.timeout(AGENT_REQUEST_TIMEOUT_MS),
@@ -160,6 +215,7 @@ async function queryAgentResult(
     const ws = new WebSocket(wsUrl);
     let settled = false;
     let joined = false;
+    let completePolls = 0;
     let pollTimer: ReturnType<typeof setTimeout> | undefined;
 
     const finish = (value: string | null) => {
@@ -261,7 +317,8 @@ async function queryAgentResult(
         payload?.type === "content.query.ack"
       ) {
         const items = Array.isArray(payload.items) ? payload.items : [];
-        const text = findFinalText(items, responseId);
+        const text =
+          findFinalText(items, responseId) ?? findAnyFinalText(items);
 
         if (text) {
           finish(text);
@@ -269,10 +326,18 @@ async function queryAgentResult(
         }
 
         if (payload.streamStatus === "complete") {
-          finish(null);
+          completePolls += 1;
+
+          if (completePolls >= CONTENT_COMPLETE_GRACE_POLLS) {
+            finish(null);
+            return;
+          }
+
+          schedulePoll();
           return;
         }
 
+        completePolls = 0;
         schedulePoll();
       }
     };

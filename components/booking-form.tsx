@@ -725,7 +725,7 @@ export default function BookingForm() {
               ))}
             </select>
             <p id="help-requested-time" className="mt-1.5 text-[13px] leading-5 text-muted">
-              8:00 AM–6:00 PM, hourly.
+              8:00 AM–5:00 PM, hourly.
             </p>
             {errors["Requested Time"] && (
               <p id="error-requested-time" className="mt-1.5 text-[13px] leading-5 text-danger">

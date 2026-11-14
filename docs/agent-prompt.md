@@ -111,7 +111,7 @@ Use one row per booking. Columns A through J, exact headers:
      }
      ```
 
-   Return up to 3 open hourly slots between 08:00 and 18:00, excluding Sundays and the requested time.
+   Return up to 3 open hourly slots between 08:00 and 17:00, excluding Sundays and the requested time.
 
 6. If Calendar, Sheets, or Gmail fails:
    - Update the same row's F to `Failed`.

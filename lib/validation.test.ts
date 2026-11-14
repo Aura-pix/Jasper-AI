@@ -139,6 +139,30 @@ describe("validateBookingInput", () => {
     }
   });
 
+  it("accepts the final one-hour appointment start before closing", () => {
+    const result = validateBookingInput(
+      { ...validBooking, "Requested Time": "17:00" },
+      "2026-11-13",
+    );
+
+    expect(result.ok).toBe(true);
+  });
+
+  it("rejects the closing hour as an appointment start", () => {
+    const result = validateBookingInput(
+      { ...validBooking, "Requested Time": "18:00" },
+      "2026-11-13",
+    );
+
+    expect(result.ok).toBe(false);
+
+    if (!result.ok) {
+      expect(result.errors["Requested Time"]).toBe(
+        "Choose an appointment start between 8:00 AM and 5:00 PM.",
+      );
+    }
+  });
+
   it("rejects a time outside business hours", () => {
     const result = validateBookingInput(
       { ...validBooking, "Requested Time": "19:00" },
@@ -149,7 +173,7 @@ describe("validateBookingInput", () => {
 
     if (!result.ok) {
       expect(result.errors["Requested Time"]).toBe(
-        "Choose a requested time between 8:00 AM and 6:00 PM.",
+        "Choose an appointment start between 8:00 AM and 5:00 PM.",
       );
     }
   });

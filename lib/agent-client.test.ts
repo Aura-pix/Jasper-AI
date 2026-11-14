@@ -6,6 +6,7 @@ import {
   buildAgentMessage,
   buildAgentWsUrl,
   extractAgentResult,
+  findAnyFinalText,
   findFinalText,
 } from "./agent-client";
 
@@ -39,6 +40,7 @@ describe("buildAgentMessage", () => {
     expect(message).toContain('"Distance (miles)":12');
     expect(message).toContain('"Requested Date":"2026-11-20"');
     expect(message).toContain('"Requested Time":"14:00"');
+    expect(message).toContain('"Timezone":"America/New_York"');
     expect(message).toContain("America/New_York");
   });
 });
@@ -109,6 +111,33 @@ describe("findFinalText", () => {
 
   it("returns null when the response has no text", () => {
     expect(findFinalText([], "response-1")).toBeNull();
+  });
+});
+
+describe("findAnyFinalText", () => {
+  it("falls back to a final text with a different response id", () => {
+    const items = [
+      {
+        seq: 1,
+        content: {
+          type: "TXT",
+          role: "user",
+          content: "booking request",
+        },
+      },
+      {
+        seq: 2,
+        content: {
+          type: "TXT",
+          responseId: "other-response",
+          content: 'BOOKING_RESULT_JSON: {"Booking Status":"Confirmed"}',
+        },
+      },
+    ];
+
+    expect(findAnyFinalText(items)).toBe(
+      'BOOKING_RESULT_JSON: {"Booking Status":"Confirmed"}',
+    );
   });
 });
 
