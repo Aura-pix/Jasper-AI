@@ -1,12 +1,10 @@
 # Submission note — draft
 
-Fill in the links before sending.
-
 ## What I built
 
 A booking flow for Jasper Plumbing House:
 
-form → `/api/quote` (price) → `/api/book` (agent relay + action stream) → Agentplace agent → Google Calendar, Google Sheets, Gmail.
+form → `/api/quote` (price) → `/api/book` (Agentplace adapter) → Agentplace `send-message` + session WebSocket → Google Calendar, Google Sheets, Gmail.
 
 The customer enters `Name`, `Email`, `Job Type`, `Distance (miles)`, `Requested Date`, and `Requested Time`. The form shows a price preview before the booking request. The agent then calculates the final price, writes a pending row to the Sheet, checks Calendar, updates the row to `Confirmed`, and sends the email. The frontend renders the agent's action log and the result.
 
@@ -28,9 +26,9 @@ and returns:
 
 The rate card is `$75` call-out plus `$2.00/mile`, multiplied by the job-type rate. It is covered by Vitest. The agent calls this endpoint for the final price; the frontend calls the same endpoint for the preview. Pricing logic lives in one place, and the agent is not allowed to invent a price.
 
-- Deployed app: `<VERCEL_URL>`
-- Pricing endpoint: `<VERCEL_URL>/api/quote`
-- GitHub repo: `<GITHUB_URL>`
+- Deployed app: `https://jasper-ai-five.vercel.app/`
+- Pricing endpoint: `https://jasper-ai-five.vercel.app/api/quote`
+- GitHub repo: `https://github.com/Aura-pix/Jasper-AI`
 
 ## Exact-key contract
 
@@ -48,6 +46,20 @@ The Agentplace Builder generates and hosts the agent from our prompt. The exact 
 
 This kept the generated agent focused. The agent calls our API instead of reimplementing pricing, and the frontend renders the agent's action log instead of hardcoding the booking steps.
 
+## Live adapter
+
+The published agent exposes `POST /api/send-message`. It is asynchronous: it returns `202 Accepted` with `{ sessionKey, responseId, accepted }` and processes the turn in the background. It does not return the booking result in the HTTP response.
+
+`/api/book` handles that in `lib/agent-client.ts`:
+
+1. It formats the exact-key booking as a `[JASPER_BOOKING_REQUEST]` message and posts it to `send-message`.
+2. It reads the `sessionKey` and `responseId` from the `202`.
+3. It connects to `wss://<agent-host>/ws?agent_session_id=<sessionKey>` and queries the session content.
+4. It waits for the final assistant text with the matching `responseId`.
+5. It extracts the `BOOKING_RESULT_JSON:` object and normalizes it into the response the form expects.
+
+The agent's normal chat and voice replies stay conversational. Only form submissions use the machine marker and structured result. This keeps the agent as the application while giving the form a reliable result.
+
 ## Availability
 
 Availability belongs to the agent because that is where the Google Calendar authorization lives. Vercel never holds Calendar credentials. The agent checks the requested slot. If it is unavailable, it updates the row to `Unavailable` and returns alternatives; the frontend shows them. If it is available, the agent updates the row to `Confirmed` and emails the customer.
@@ -57,9 +69,10 @@ The mock agent marks Sundays and 12:00 PM as booked so the unavailable path can 
 ## Platform limits
 
 - The published Agentplace agent has restricted authority. It can write to Sheets and send Gmail, but the side effects need to be tested directly. A successful agent response is not proof that the Sheet row or email exists.
-- The agent endpoint may not expose granular per-step progress. The live proxy relays the agent's final result; the mock streams the same action contract for local development. If Agentplace supports streaming, the proxy can relay it.
+- `send-message` has no synchronous structured result and no documented webhook in the published endpoint, so the adapter holds a session WebSocket open and polls `content.query` for the final text. This is the main platform workaround. A production version would prefer a webhook or a synchronous JSON endpoint.
+- The agent must return the exact `BOOKING_RESULT_JSON:` line for form submissions. Conversational replies are not parsed.
 - The mock agent is deterministic: Sundays and 12:00 PM are unavailable. The live agent uses Calendar.
-- The SSE route is capped at 60 seconds on Vercel.
+- The SSE route is capped at 60 seconds on Vercel. The adapter uses a 20-second send-message timeout and a 35-second WebSocket wait.
 - The Sheet has ten columns. The agent updates the same row via `Booking ID`.
 
 ## Production changes
@@ -74,6 +87,7 @@ The mock agent marks Sundays and 12:00 PM as booked so the unavailable path can 
 
 ## Links
 
-- Published agent: `<AGENTPLACE_URL>`
-- GitHub repo: `<GITHUB_URL>`
-- Deployed form: `<VERCEL_URL>`
+- Published agent: `https://bobmetsnbddq.run.agentplace.io`
+- Send-message endpoint: `https://bobmetsnbddq.run.agentplace.io/api/send-message`
+- GitHub repo: `https://github.com/Aura-pix/Jasper-AI`
+- Deployed form: `https://jasper-ai-five.vercel.app/`

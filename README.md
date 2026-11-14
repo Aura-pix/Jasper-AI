@@ -11,7 +11,7 @@ The original assessment brief is preserved in [`docs/agentplace-brief.md`](docs/
 1. Customer enters `Name`, `Email`, `Job Type`, `Distance (miles)`, `Requested Date`, and `Requested Time`.
 2. The form calls `/api/quote` and shows the synchronous price preview.
 3. The customer requests the booking. The form posts the exact-key request to `/api/book`.
-4. In mock mode, `/api/book` simulates the agent and streams its actions. In live mode, it forwards the request to the published Agentplace agent.
+4. In mock mode, `/api/book` simulates the agent and streams its actions. In live mode, it posts a machine booking request to the Agentplace `send-message` endpoint, waits for the agent's structured result, and relays that result.
 5. The agent calculates the price, writes a pending row to the Sheet, checks Calendar, updates the row to `Confirmed`, and sends the email.
 6. The frontend renders the agent's action log, the confirmation, or the agent's unavailable/failure response.
 
@@ -20,7 +20,7 @@ The original assessment brief is preserved in [`docs/agentplace-brief.md`](docs/
 | Layer | Responsibility |
 | --- | --- |
 | `app/api/quote` | Pricing only. No calendar credentials, no side effects. |
-| `app/api/book` | Validates the exact-key request, streams the mock agent's actions, or relays the live agent's result. |
+| `app/api/book` | Validates the exact-key request, streams the mock agent's actions, or runs the live Agentplace adapter and relays the result. |
 | `components/booking-form.tsx` | Form, price preview, agent action log, unavailable/retry states, confirmation. |
 | Agentplace agent | The booking workflow: price lookup, pending Sheet row, Calendar check, status update, Gmail confirmation. Generated from our prompt, hosted by Agentplace. |
 
@@ -168,7 +168,22 @@ Booking validation errors return `400` with exact field keys before the stream s
 
 ### Live agent request
 
-In live mode, `/api/book` sends the agent the exact-key request plus `"Timezone": "America/New_York"`.
+`AGENT_BOOKING_URL` is the published agent's `POST /api/send-message` URL:
+
+```dotenv
+AGENT_BOOKING_URL=https://bobmetsnbddq.run.agentplace.io/api/send-message
+```
+
+The live adapter in `lib/agent-client.ts` does four things:
+
+1. Posts a `[JASPER_BOOKING_REQUEST]` machine message containing the exact-key booking and the required response schema to `send-message`.
+2. Reads the `202` response: `{ "sessionKey": "...", "responseId": "...", "accepted": true }`.
+3. Connects to `wss://<agent-host>/ws?agent_session_id=<sessionKey>`, queries the session content, and waits for the final assistant text with the matching `responseId`.
+4. Extracts the `BOOKING_RESULT_JSON:` object and normalizes it into the result the form expects.
+
+This adapter is necessary because `send-message` is asynchronous. It returns `202` and processes the turn in the background; it does not return the booking result in the HTTP response. The agent's normal chat and voice replies stay conversational. Only form submissions use the machine marker.
+
+The agent must support the machine request mode described in [`docs/agent-prompt.md`](docs/agent-prompt.md).
 
 ## Agent workflow
 
@@ -203,7 +218,7 @@ copy .env.example .env.local
 
 ```dotenv
 AGENT_MODE=live
-AGENT_BOOKING_URL=https://your-published-agent.example.com
+AGENT_BOOKING_URL=https://your-agent.example.com/api/send-message
 AGENT_API_KEY=
 ```
 
@@ -229,10 +244,10 @@ The tests cover the rate card, exact-key validation, and the mock availability/a
 3. Create a Vercel project from the repo and deploy. `/api/quote` and `/api/book` are part of the same deployment.
 4. Publish the Agentplace agent using the prompt in [`docs/agent-prompt.md`](docs/agent-prompt.md). Use the deployed `/api/quote` URL.
 5. Authorize Google Calendar, Google Sheets, and Gmail in Agentplace.
-6. Set `AGENT_MODE=live`, `AGENT_BOOKING_URL`, and `AGENT_API_KEY` in Vercel, then redeploy.
+6. Set `AGENT_MODE=live`, `AGENT_BOOKING_URL` (the `send-message` URL), and `AGENT_API_KEY` in Vercel, then redeploy.
 7. Submit a booking and verify the pending row, the status update, the email, and the Calendar check.
 
-`/api/book` streams for up to 60 seconds (`maxDuration = 60`). Keep the live agent response within that window.
+`/api/book` streams for up to 60 seconds (`maxDuration = 60`). The live adapter uses a 20-second request timeout and a 35-second WebSocket wait, so keep the agent turn within that window.
 
 ## Production next steps
 
@@ -251,3 +266,7 @@ The tests cover the rate card, exact-key validation, and the mock availability/a
 - Address and phone are intentionally omitted for this assessment.
 - The mock uses New York business hours (`America/New_York`) and hourly slots from 8:00 AM to 6:00 PM.
 - The published Agentplace agent has restricted authority. Test that the Sheet append/update and Gmail send actually complete; do not assume a 200 response means the side effects happened.
+- `AGENT_BOOKING_URL` must be the `POST /api/send-message` URL, not the agent page URL. The adapter derives the `/ws` session URL from the same host.
+- `send-message` is asynchronous. The adapter uses the session WebSocket `content.query` method to wait for the final assistant text. If Agentplace adds a synchronous or webhook result endpoint, replace that wait in `lib/agent-client.ts`.
+- The form ignores conversational agent replies. The agent must return the `BOOKING_RESULT_JSON:` line described in `docs/agent-prompt.md`.
+- A live booking test writes a real Sheet row and may send a real email. Run it deliberately, not as part of a generic smoke test.

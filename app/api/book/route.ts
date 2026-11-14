@@ -1,11 +1,11 @@
 import {
-  BUSINESS_TIMEZONE,
   type ActionStatus,
   type AgentAction,
   type BookingRequest,
   type BookingResult,
   type BookingSlot,
 } from "@/lib/booking";
+import { fetchAgentBooking } from "@/lib/agent-client";
 import { getMockBookingResult } from "@/lib/mock-agent";
 import { validateBookingInput } from "@/lib/validation";
 
@@ -182,33 +182,17 @@ async function callLiveAgent(booking: BookingRequest): Promise<BookingResult> {
   }
 
   try {
-    const headers: Record<string, string> = {
-      "Content-Type": "application/json",
-    };
+    const value = await fetchAgentBooking(url, booking);
 
-    if (process.env.AGENT_API_KEY) {
-      headers.Authorization = `Bearer ${process.env.AGENT_API_KEY}`;
-    }
-
-    const response = await fetch(url, {
-      method: "POST",
-      headers,
-      body: JSON.stringify({
-        ...booking,
-        Timezone: BUSINESS_TIMEZONE,
-      }),
-      signal: AbortSignal.timeout(30_000),
-    });
-
-    if (!response.ok) {
+    if (!value) {
       return {
         "Booking Status": "Failed",
-        Message: "We couldn't reach the booking service.",
+        Message: "The booking service did not return a booking result.",
         Actions: [{ Step: "Working on your booking", Status: "Failed" }],
       };
     }
 
-    return normalizeAgentResult(await response.json(), booking);
+    return normalizeAgentResult(value, booking);
   } catch {
     return {
       "Booking Status": "Failed",
