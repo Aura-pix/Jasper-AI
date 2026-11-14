@@ -1,0 +1,14 @@
+/* Jasper Plumbing House uses a water-inspired teal action accent, with a clear blue listening state and a distinct teal speaking state. Values are H S% L% triples. */
+:root.light {
+  --primary: 173 72% 29%;
+  --primary-foreground: 0 0% 100%;
+  --voice-wave-listening: 201 87% 41%;
+  --voice-wave-speaking: 173 72% 29%;
+}
+
+:root.dark {
+  --primary: 166 76% 65%;
+  --primary-foreground: 202 36% 12%;
+  --voice-wave-listening: 201 90% 73%;
+  --voice-wave-speaking: 166 76% 65%;
+}
